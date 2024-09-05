@@ -1,13 +1,17 @@
 DDP <- function(y, X, aff_mat, alpha=1, max_iters=10000, burn_in=1000, 
                   shape=1, rate=1, delta=c(0.1, 0.05, 0.05), log_lin=F){
-    
     # compulsory inputs:
         # aff_mat: affinity matrix of h_ij as per (Dahl, 2008)
         # y: a matrix of dimension T*N
         # X: a matrix of dimension T*N*p
+    # optional arguments:
+        # max_iters: length of time for the sampler to run
+        # burn_in: number of samples to discard as burn-in
+        # shape, rate: parameters for the Gamma distribution
+        # delta: length 3 vector for step size in random-walk MH step
     # outputs: a list containing 2 objects:
-        # ch: a N x (max_iters-burn_in) matrix where columns are cluster labels
-        # p: a list of vectors, each element is a 3 x max(ch[, t]) matrix
+        # ch: a N*(max_iters-burn_in) matrix where columns are cluster labels
+        # p: a list of vectors, each element is a 3*max(ch[, t]) matrix
     
     # setup storage and parameter initialisation
     T_max <- dim(X)[1]; N <- dim(X)[2]; num_params <- dim(X)[3]
@@ -100,8 +104,12 @@ DDP <- function(y, X, aff_mat, alpha=1, max_iters=10000, burn_in=1000,
 
 pr_coef_sampler <- function(y, X, coefs, delta=c(0.2, 0.05, 0.05), log_lin=FALSE, 
                             shape=1, rate=1){
-    # y is the (T-1) * n matrix of times for t = 2, ..., T
-    # X is the T * n * 3 matrix of predictors
+    # compulsory inputs:
+        # y is the (T-1)*N matrix of observations for t = 2, ..., T
+        # X is the (T-1)*N*3 array of predictors
+        # coefs is a length 3 vector of previously sampled coefficients 
+    # outputs: 
+        # coefficients from a random walk Metropolis-Hastings step
     
     # deal with dimensional edge cases
     if (length(dim(X)) == 2){
@@ -157,13 +165,14 @@ pr_coef_sampler <- function(y, X, coefs, delta=c(0.2, 0.05, 0.05), log_lin=FALSE
 FMM <- function(y, X, alpha=c(1, 1, 1, 1), max_iters=10000, burn_in=1000,
                 log_lin=FALSE, shape=1, rate=1, delta=c(0.2, 0.1, 0.1)){
     
-    # inputs:
+    # compulsotry inputs:
         # y: a matrix of dimension T*N
         # X: a tensor of dimension T*N*num_params
         # alpha: Dirichlet distribution concentration parameter
-        # outputs:
-        # delta: llength npar
-    #
+    # outputs: a list containing 2 objects:
+        # ch: a N*(max_iters-burn_in) matrix where columns are cluster label samples
+        # p: a (max_iters-burn_in)*num_params*length(alpha) array of cluster coefficients
+        # prob: a length(alpha)*(max_iters-burn_in) matrix of mixture proportion samples
     
     # setup storage history and param initialisation
     T_max <- dim(X)[1]; N <- dim(X)[2]; num_params <- dim(X)[3]
@@ -243,4 +252,21 @@ PNAR_X <- function(y, X, log_linear=FALSE){
         coefs <- exp(optim(c(0, 0, 0), obj)$par)
     }
     return(coefs)
+}
+
+
+cond_clusters <- function(y, X, cluster_labels, burn_in=1000, max_iters=10000){
+    K <- length(unique(cluster_labels))
+    param_hist <- array(0, dim=c(K, 3, max_iters))
+    mean_params <- array(0, dim=c(3, K))
+    for (k in unique(cluster_labels)){
+        k_nodes <- which(cluster_labels == k)
+        y_k <- y[, k_nodes]; X_k <- X[, k_nodes, ]
+        param_hist[k, , 1] <- c(0.5, 0.1, 0.1)
+        for (iter in 1:(max_iters-1)){
+            param_hist[k, , iter+1] <- pr_coef_sampler(y_k, X_k, param_hist[k, , iter])
+        }
+        mean_params[, k] <- apply(param_hist[k, , (burn_in+1):max_iters], 1, mean)
+    }
+    return(list("p"=param_hist[, ,(burn_in+1):max_iters], "mean_p"=mean_params))
 }
