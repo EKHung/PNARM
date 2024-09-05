@@ -111,21 +111,3 @@ stack_co_occurence <- function(mcmc_list, weights, thin=10){
     }
     return(cc)
 }
-
-
-stack_one_step_forecast <- function(mcmc_list, weights, X_pred, pop_c=100000){
-    N <- dim(X_pred)[1]; y_hat <- rep(0, N); ESS <- rep(0, N)
-    coefs <- stack_mean_coefs(mcmc_list, weights)
-    y_hat <- X_pred %*% 
-    ESS <- rep(0, N)
-    for (i in 1:N){
-        pred <- sampled_params %*% X_pred[i, ]
-        if (!is.null(last_step)){
-            # for reversing lag1-differencing and population adjustment
-            pred <- last_step[i] + pop_adjust[i]/pop_c * pred
-        }
-        ESS[i] <- coda::effectiveSize(pred)
-        HDP_mean[i, ] <- coda::HPDinterval(as.mcmc(pred))
-        y_hat[i] <- mean(pred)
-    }
-}
