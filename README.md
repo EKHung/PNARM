@@ -8,7 +8,7 @@ The repository is organised into the following `R` scripts:
 - `Simulations_and_figures.R`: contains functions for simulating data from a Poisson vector autoregression model given cluster memberships and coefficients, and for creating figures for easy visualisation of model outputs.
 - `Helper_functions.R` contains helper functions used in the functions of the other scripts.
 - `gagnar.R`: contains an MCMC algorithm for fitting GAGNAR models [2]. The code is almost entirely the same as from the supplementary material of their paper.
-- `COVID-19.csv`: is the raw data set of the COVID-19 cases from the Republic of Ireland.
+- `COVID-19.csv`: is a raw data set of the COVID-19 cases from the Republic of Ireland from [3], originally from the HPSC.
 - `eco_hubs.Rdata`: contains the igraph object for the economic hubs network. This was taken from the GitHub repository associated with [3]. 
 
 References:
