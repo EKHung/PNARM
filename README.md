@@ -12,5 +12,7 @@ The repository is organised into the following `R` scripts:
 - `eco_hubs.Rdata`: contains the igraph object for the economic hubs network. This was taken from the GitHub repository associated with [3]. 
 
 [1]  Yao, Y., Vehtari, A., and Gelman, A. (2022). Stacking for non-mixing Bayesian computations: The curse and blessing of multimodal posteriors. Journal of Machine Learning Research, 23(79):1–45.
+
 [2]  Ren, Y., Zhu, X., Lu, X., and Hu, G. (2024). Graphical assistant grouped network autoregression model: A Bayesian nonparametric recourse. Journal of Business and Economic Statistics, 42:49–63.
+
 [3] Armbruster, S., Reinert, G. Network-based time series modeling for COVID-19 incidence in the Republic of Ireland. Appl Netw Sci 9, 23 (2024). https://doi.org/10.1007/s41109-024-00634-2
