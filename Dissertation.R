@@ -421,6 +421,8 @@ eco_graph(point_forecast_df[1:26, 4], FMM5_cMAP, "FMM5_predfit",
           maxval=max(point_forecast_df[1:26, 10]))
 eco_graph(point_forecast_df[1:26, 7], GAGNAR_cMAP, "GAGNAR_predfit",
           maxval=max(point_forecast_df[1:26, 10]))
+eco_graph(point_forecast_df[1:26, 7], GAGNAR_diff_cMAP, "GAGNAR_diff_predfit",
+          maxval=max(point_forecast_df[1:26, 10]))
 eco_graph(point_forecast_df[1:26, 10], rep(1, 26), "AdjPNAR_predfit",
           maxval=max(point_forecast_df[1:26, 10]))
 
