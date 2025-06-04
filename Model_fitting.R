@@ -165,7 +165,7 @@ pr_coef_sampler <- function(y, X, coefs, delta=c(0.2, 0.05, 0.05), log_lin=FALSE
 FMM <- function(y, X, alpha=c(1, 1, 1, 1), max_iters=10000, burn_in=1000,
                 log_lin=FALSE, shape=1, rate=1, delta=c(0.2, 0.1, 0.1)){
     
-    # compulsotry inputs:
+    # compulsory inputs:
         # y: a matrix of dimension T*N
         # X: a tensor of dimension T*N*num_params
         # alpha: Dirichlet distribution concentration parameter
@@ -176,51 +176,66 @@ FMM <- function(y, X, alpha=c(1, 1, 1, 1), max_iters=10000, burn_in=1000,
     
     # setup storage history and param initialisation
     T_max <- dim(X)[1]; N <- dim(X)[2]; num_params <- dim(X)[3]
-    K <- length(alpha)
-    cluster_history <- matrix(0, N, max_iters-burn_in)
-    params_history <- array(0, dim=c(max_iters-burn_in, num_params, K))
-    probs_history <- matrix(0, K, max_iters-burn_in)
-    cluster_labels <- c(1:K, sample.int(K, size=N-K, replace=T))
-    cluster_params <- matrix(c(rgamma(num_params*K, shape=shape, rate=rate)), 
-                             nrow=3, byrow=T)
-    
-    
-    for (iter in 1:max_iters){
-        # Gibbs sampling for cluster allocation probs
-        label_counts <- sapply(1:K, function(k) length(which(cluster_labels==k)))
-        probs <- rdirichlet(n=1, alpha + label_counts)
-        # Gibbs sampling for cluster labels
-        for (i in 1:N){
-            fitted <- X[, i, ] %*% cluster_params
-            if (log_lin){
-                fitted <- exp(fitted)
+    if (alpha == c(1)){
+        params_history <- matrix(0, max_iters - burn_in, 3)
+        params <- rgamma(3, shape=shape, rate=rate)
+        for (iter in 1:max_iters){
+            params <- pr_coef_sampler(y, X, params, log_lin=log_lin, 
+                                      shape=shape, rate=rate, delta=delta)
+            if (iter>burn_in){
+                params_history[iter-burn_in, ] <- params
             }
-            l_cond_lik <- apply(dpois(y[, i], fitted, log=T), 2, sum)
-            l_proposal_probs <- sapply(1:K, function(k) {l_cond_lik[k] + log(probs[k])})
-            max_prop_prob <- max(l_proposal_probs)
-            l_proposal_probs <- l_proposal_probs - max_prop_prob
-            cluster_labels[i] <- sample.int(K, size=1, prob=exp(l_proposal_probs))
         }
+        return(params_history)
         
-        # Metropolis-Hastings step for cluster parameters
-        for (k in 1:K){
-            k_nodes <- which(cluster_labels == k)
-            y_k <- y[, k_nodes]; X_k <- X[, k_nodes, ]
-            cluster_params[, k] <- pr_coef_sampler(y_k, X_k, cluster_params[, k],
-                                                   log_lin=log_lin, shape=shape, 
-                                                   rate=rate, delta=delta)
-        }
+    } else{
+        K <- length(alpha)
         
-        # storing samples
-        if (iter > burn_in){
-            cluster_history[, iter-burn_in] <- cluster_labels
-            params_history[iter-burn_in, ,] <- cluster_params
-            probs_history[, iter-burn_in] <- probs
+        cluster_history <- matrix(0, N, max_iters-burn_in)
+        params_history <- array(0, dim=c(max_iters-burn_in, num_params, K))
+        probs_history <- matrix(0, K, max_iters-burn_in)
+        cluster_labels <- c(1:K, sample.int(K, size=N-K, replace=T))
+        cluster_params <- matrix(c(rgamma(num_params*K, shape=shape, rate=rate)), 
+                                 nrow=3, byrow=T)
+        
+        
+        for (iter in 1:max_iters){
+            # Gibbs sampling for cluster allocation probs
+            label_counts <- sapply(1:K, function(k) length(which(cluster_labels==k)))
+            probs <- rdirichlet(n=1, alpha + label_counts)
+            # Gibbs sampling for cluster labels
+            for (i in 1:N){
+                fitted <- X[, i, ] %*% cluster_params
+                if (log_lin){
+                    fitted <- exp(fitted)
+                }
+                l_cond_lik <- apply(dpois(y[, i], fitted, log=T), 2, sum)
+                l_proposal_probs <- sapply(1:K, function(k) {l_cond_lik[k] + log(probs[k])})
+                max_prop_prob <- max(l_proposal_probs)
+                l_proposal_probs <- l_proposal_probs - max_prop_prob
+                cluster_labels[i] <- sample.int(K, size=1, prob=exp(l_proposal_probs))
+            }
+            
+            # Metropolis-Hastings step for cluster parameters
+            for (k in 1:K){
+                k_nodes <- which(cluster_labels == k)
+                y_k <- y[, k_nodes]; X_k <- X[, k_nodes, ]
+                cluster_params[, k] <- pr_coef_sampler(y_k, X_k, cluster_params[, k],
+                                                       log_lin=log_lin, shape=shape, 
+                                                       rate=rate, delta=delta)
+            }
+        
+            # storing samples
+            if (iter > burn_in){
+                cluster_history[, iter-burn_in] <- cluster_labels
+                params_history[iter-burn_in, ,] <- cluster_params
+                probs_history[, iter-burn_in] <- probs
+            }
         }
     }
     return(list("ch"=cluster_history, "p"=params_history, "prob"=probs_history))
 }
-
+                                   
 
 PNAR_X <- function(y, X, log_linear=FALSE){
     # Inputs:
