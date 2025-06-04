@@ -447,3 +447,55 @@ rownames(models_ARI) <- modnames
 colnames(models_ARI) <- modnames
 xtable(models_ARI)
 
+                                                   
+#### REVIEWER COMMENTS ####
+# checking network sensitivity 
+railway_adj <- igraph::as_adjacency_matrix(covid_net_train_igraph)
+railway_adj <- as.matrix(railway_adj)
+or <- order(county_index_train$CountyName)
+railway_adj <- railway_adj[or, or]
+row.names(railway_adj) <- 1:26
+colnames(railway_adj) <- 1:26
+railway_igraph <- igraph::graph_from_adjacency_matrix(railway_adj, 
+                                                      mode='undirected')
+V(railway_igraph)$name <- counties_info$County
+railway_distances <- as.matrix(distances(railway_igraph))
+railway_aff_expdist <- affinity(railway_distances, function(x) exp(-x))
+png("railway_network.png", height=700)
+plot(railway_igraph, vertex.label.cex=1.8, 
+     layout=cbind(counties_info$Long, counties_info$Lat), 
+     asp=1.5, vertex.size=7)
+
+ts_railway <- X_from_ts(covid_ts, railway_adj, pop_adjust=counties_info$Pop,
+                       pop_adjust_intercept=TRUE)
+X_railway <- ts_railway[1:23, , ]
+
+complete_adj <- matrix(1, nrow=26, ncol=26) - diag(26)
+complete_aff_expdist <- affinity(complete_adj, function(x) exp(-x))
+ts_complete <- X_from_ts(covid_ts, complete_adj, pop_adjust=counties_info$Pop,
+                       pop_adjust_intercept=TRUE)
+X_complete <- ts_complete[1:23, , ]
+
+ddp_railway <- DDP(y, X_railway, railway_aff_expdist, max_iters=100000, 
+                   burn_in=5000)
+ddp_complete <- DDP(y, X_complete, complete_aff_expdist, max_iters=100000, 
+                    burn_in=5000)
+
+railway_modfit <- model_fit(y, mcmc_out=ddp_railway, crp=TRUE, 
+                            X_pred=X_railway, thin=10)
+railway_yhat <- one_step_forecast(ts_railway[24, , ], ddp_railway, crp=TRUE)
+railway_MASE <- mean(scaled_error(y_ts, railway_yhat$y_hat))
+complete_modfit <- model_fit(y, mcmc_out=ddp_complete, crp=TRUE, 
+                                X_pred=X_complete, thin=10)
+complete_yhat <- one_step_forecast(ts_complete[24, , ], ddp_complete, crp=TRUE)
+complete_MASE <- mean(scaled_error(y_ts, complete_yhat$y_hat))
+railway_predfit <- model_fit(y_true, mcmc_out=ddp_railway, crp=TRUE, 
+                            X_pred=ts_railway[24, , ], thin=10)
+complete_predfit <- model_fit(y_true, mcmc_out=ddp_complete, crp=TRUE, 
+                             X_pred=ts_complete[24, , ], thin=10)
+
+# Bayesian non-mixture model.                                 
+FMM1 <- FMM(y, X, max_iters=100000, burn_in=5000, alpha=c(1))
+FMM1_modfit <- single_cluster_eval(y, X, sampled_params=FMM1)
+FMM1_predfit <- single_cluster_eval(y_true, X_pred, sampled_params=FMM1)
+FMM1_MASE <- mean(scaled_error(y_ts, apply(FMM1 %*% t(X_pred), 2, mean)))
