@@ -223,3 +223,36 @@ cluster_number <- function(title, mcmc_out){
                 "ESS" <- effectiveSize(clusts)))
 }
 
+
+single_cluster_eval <- function(y, X, sampled_params, y_true=NA, thin=20){
+    # Inputs:
+        # y is a T*N matrix of responses, X[t, i, ] gives predictors
+        # params is a B * dim(X)[3] matrix of MCMC samples
+    B <- dim(sampled_params)[1]
+    params <- sampled_params[seq(from=1, to=B, by=thin) , ]
+    if (is.null(dim(y))){
+        T_len <- 1; N <- length(y)
+        score <- 0
+        for (i in 1:N){
+            rates <- params %*% X[i, ]
+            score <- score - log(mean(dpois(y[i], lambda=rates)))
+        }
+        return(score/N)
+    } 
+    T_len <- dim(y)[1]; N <- dim(y)[2]
+    score <- 0; MASE <- 0
+    for (i in 1:N){
+        if (T_len == 1){
+            predictors <- X[i, ]
+        } else{
+            predictors <- t(X[, i, ])
+        }
+        rates <- params %*% t(X[, i, ]) #B//thin x T_len rates for node i
+        scale<- mean(abs(y[1:(T_len - 1), i] - y[2:T_len, i]))
+        for (t in 1:T_len){
+            MASE <- MASE + abs(y[t, i] - mean(rates[, t]))/scale
+            score <- score  - log(mean(dpois(y[t, i], lambda=rates[, t])))
+        }
+    }
+    return(list('MASE'= MASE/(T_len*N), 'score'=score/(T_len*N)))
+}
